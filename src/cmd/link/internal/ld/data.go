@@ -1087,7 +1087,6 @@ func writeBlocks(ctxt *Link, out *OutBuf, sem chan int, ldr *loader.Loader, syms
 }
 
 func writeBlock(ctxt *Link, out *OutBuf, ldr *loader.Loader, syms []loader.Sym, addr, size int64, pad []byte) {
-
 	st := ctxt.makeRelocSymState()
 
 	// This doesn't distinguish the memory size from the file
@@ -1645,7 +1644,6 @@ func (state *dodataState) setSymType(s loader.Sym, kind sym.SymKind) {
 }
 
 func (ctxt *Link) dodata(symGroupType []sym.SymKind) {
-
 	// Give zeros sized symbols space if necessary.
 	fixZeroSizedSymbols(ctxt)
 
@@ -1883,7 +1881,6 @@ func (state *dodataState) allocateSingleSymSections(seg *sym.Segment, symn sym.S
 // a new sym type to apply to each sym during the assignment, and
 // "rwx" holds section permissions.
 func (state *dodataState) allocateNamedSectionAndAssignSyms(seg *sym.Segment, secName string, symn sym.SymKind, forceType sym.SymKind, rwx int) *sym.Section {
-
 	sect := state.allocateNamedDataSection(seg, secName, []sym.SymKind{symn}, rwx)
 	state.assignDsymsToSection(sect, state.data[symn], forceType, aligndatsize)
 	return sect
@@ -2246,7 +2243,6 @@ func (state *dodataState) allocateDataSections(ctxt *Link) {
 // allocateDwarfSections allocates sym.Section objects for DWARF
 // symbols, and assigns symbols to sections.
 func (state *dodataState) allocateDwarfSections(ctxt *Link) {
-
 	alignOne := func(state *dodataState, datsize int64, s loader.Sym) int64 { return datsize }
 
 	ldr := ctxt.loader
@@ -2421,6 +2417,10 @@ func (ctxt *Link) textbuildid() {
 }
 
 func (ctxt *Link) buildinfo() {
+	if os.Getenv("NO_BUILDINFO") != "" {
+		fmt.Printf("%s >>> removing build info...\n", os.Getpid())
+		return
+	}
 	// Write the buildinfo symbol, which go version looks for.
 	// The code reading this data is in package debug/buildinfo.
 	ldr := ctxt.loader
