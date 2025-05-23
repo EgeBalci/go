@@ -1,0 +1,38 @@
+
+name: build
+
+on:
+  push:
+    branches: [ "master" ]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4 
+    - name: Build 
+      run: cd ./src && ./make.bash 
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4 
+    - name: Build  
+      run: cd ./src && ./make.bash 
+
+  # build-windows:
+  #   runs-on: windows-latest
+  #   steps:
+  #   - uses: actions/checkout@v3
+  #   - name: Clone go repo
+  #     run: git clone https://github.com/golang/go
+  #   - name: Apply the patch
+  #     run: cp pcln.patch ./go/ && cd go && git checout release-branch.go1.24  && git apply pcln.patch 
+  #   - name: Build 
+  #     run: cd ./src && ./make.bat
+  #   - name: 'Upload Artifact'
+  #     uses: actions/upload-artifact@v3
+  #     with:
+  #       name: go-windows-1_24.exe
+  #       path: ./bin/go
+  #       retention-days: 365
