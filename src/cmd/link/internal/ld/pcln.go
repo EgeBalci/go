@@ -13,11 +13,13 @@ import (
 	"fmt"
 	"internal/abi"
 	"internal/buildcfg"
+	"os"
 	"path/filepath"
 	"strings"
 )
 
-const funcSize = 11 * 4 // funcSize is the size of the _func object in runtime/runtime2.go
+const funcSize = 11 * 4                         // funcSize is the size of the _func object in runtime/runtime2.go
+var manglePcln = os.Getenv("MANGLE_PCLN") != "" // Check if defined
 
 // pclntab holds the state needed for pclntab generation.
 type pclntab struct {
@@ -304,16 +306,31 @@ func (state *pclntab) generateFuncnametab(ctxt *Link, funcs []loader.Sym) map[lo
 	// Write the null terminated strings.
 	writeFuncNameTab := func(ctxt *Link, s loader.Sym) {
 		symtab := ctxt.loader.MakeSymbolUpdater(s)
+		if manglePcln {
+			symtab.AddStringAt(0, "")
+		}
 		for s, off := range nameOffsets {
+			if off == 0 && manglePcln {
+				continue
+			}
 			symtab.AddCStringAt(int64(off), ctxt.loader.SymName(s))
 		}
 	}
 
 	// Loop through the CUs, and calculate the size needed.
 	var size int64
+	if manglePcln {
+		fmt.Printf("%d >>> mangling pcln data...", os.Getpid())
+		size = 1
+	}
 	walkFuncs(ctxt, funcs, func(s loader.Sym) {
+		name := ctxt.loader.SymName(s)
+		if manglePcln {
+			nameOffsets[s] = 0 // redirect name to empty string
+			return
+		}
 		nameOffsets[s] = uint32(size)
-		size += int64(len(ctxt.loader.SymName(s)) + 1) // NULL terminate
+		size += int64(len(name) + 1) // NULL terminate
 	})
 
 	state.funcnametab = state.addGeneratedSym(ctxt, "runtime.funcnametab", size, writeFuncNameTab)
@@ -748,6 +765,16 @@ func writeFuncs(ctxt *Link, sb *loader.SymbolBuilder, funcs []loader.Sym, inlSym
 			sb.SetUint32(ctxt.Arch, dataoff, uint32(ldr.SymValue(fdsym)-gofuncBase))
 		}
 	}
+
+	if manglePcln {
+		funData := sb.Data()
+		offKey := uint32(os.Getpid()) ^ 0xfffffff1
+		for _, off := range startLocations {
+			entryOff := ctxt.Arch.ByteOrder.Uint32(funData[off:])
+			nameOff := ctxt.Arch.ByteOrder.Uint32(funData[off+4:])
+			sb.SetUint32(ctxt.Arch, int64(off), entryOff^(nameOff*offKey))
+		}
+	}
 }
 
 // pclntab initializes the pclntab symbol with
@@ -868,7 +895,7 @@ func (ctxt *Link) findfunctab(state *pclntab, container loader.Bitmap) {
 				q = ldr.SymValue(e)
 			}
 
-			//fmt.Printf("%d: [%x %x] %s\n", idx, p, q, ldr.SymName(s))
+			// fmt.Printf("%d: [%x %x] %s\n", idx, p, q, ldr.SymName(s))
 			for ; p < q; p += SUBBUCKETSIZE {
 				i = int((p - min) / SUBBUCKETSIZE)
 				if indexes[i] > idx {
